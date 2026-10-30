@@ -1,0 +1,89 @@
+name: Build Soft Face APK
+
+on:
+  push:
+    branches: ["**"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: softface-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      BUILD_NUMBER: ${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # Same signing key as Brain: GitHub Secrets if set, otherwise the files in signing/.
+      - name: Set up signing key
+        env:
+          KS: ${{ secrets.KEYSTORE_BASE64 }}
+          KS_PW: ${{ secrets.KEYSTORE_PASSWORD }}
+          K_ALIAS: ${{ secrets.KEY_ALIAS }}
+          K_PW: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ -n "$KS" ]; then
+            echo "$KS" | tr -d ' \n\r' | base64 -d > "$RUNNER_TEMP/brain.jks"
+          elif JKS=$(ls signing/*.jks 2>/dev/null | head -1) && PWF=$(ls signing/*PASSWORD*.txt 2>/dev/null | head -1) && [ -n "$JKS" ] && [ -n "$PWF" ]; then
+            cp "$JKS" "$RUNNER_TEMP/brain.jks"
+            KS_PW=$(tr -d ' \n\r' < "$PWF")
+            K_PW=$KS_PW
+            K_ALIAS=brain
+          else
+            echo "::warning::No signing key found, using a debug key. Add KEYSTORE_BASE64 etc. as secrets to keep updates installable."
+            exit 0
+          fi
+          echo "::add-mask::$KS_PW"
+          {
+            echo "BRAIN_KEYSTORE_FILE=$RUNNER_TEMP/brain.jks"
+            echo "BRAIN_KEYSTORE_PASSWORD=$KS_PW"
+            echo "BRAIN_KEY_ALIAS=$K_ALIAS"
+            echo "BRAIN_KEY_PASSWORD=$K_PW"
+          } >> "$GITHUB_ENV"
+
+      - name: Build signed APK
+        run: |
+          chmod +x gradlew
+          set -o pipefail
+          ./gradlew --no-daemon assembleRelease 2>&1 | tee build.log
+          mkdir -p out
+          cp app/build/outputs/apk/release/app-release.apk "out/SoftFace-${BUILD_NUMBER}.apk"
+
+      - name: Report build errors
+        if: failure()
+        run: |
+          grep -E "^e: |error:|What went wrong" -A2 build.log | head -40 | while IFS= read -r line; do
+            echo "::error::${line}"
+          done || true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SoftFace-${{ github.run_number }}
+          path: out/*.apk
+
+      - name: Publish to Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: softface-${{ github.run_number }}
+          name: Soft Face build ${{ github.run_number }}
+          body: |
+            Branch: ${{ github.ref_name }}
+            Commit: ${{ github.event.head_commit.message || github.sha }}
+
+            Download **SoftFace-${{ github.run_number }}.apk** below and open it on the Fold6 to install.
+          prerelease: ${{ github.ref_name != 'main' }}
+          make_latest: ${{ github.ref_name == 'main' }}
+          files: out/*.apk
