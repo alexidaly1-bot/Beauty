@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Simple face outline with soft cheeks -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#00000000" android:strokeColor="#FFF6D5DC" android:strokeWidth="4"
+        android:pathData="M54,30 C67,30 74,40 74,53 C74,68 64,80 54,80 C44,80 34,68 34,53 C34,40 41,30 54,30 Z" />
+    <path android:fillColor="#FFF29BB0"
+        android:pathData="M45,60 m-5,0 a5,4 0 1,0 10,0 a5,4 0 1,0 -10,0" />
+    <path android:fillColor="#FFF29BB0"
+        android:pathData="M63,60 m-5,0 a5,4 0 1,0 10,0 a5,4 0 1,0 -10,0" />
+    <path android:fillColor="#00000000" android:strokeColor="#FFF6D5DC" android:strokeWidth="3"
+        android:strokeLineCap="round" android:pathData="M48,69 Q54,73 60,69" />
+</vector>
